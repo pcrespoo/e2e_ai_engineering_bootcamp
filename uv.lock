@@ -606,6 +606,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "langsmith" },
     { name = "matplotlib" },
     { name = "qdrant-client" },
 ]
@@ -625,6 +626,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "langsmith", specifier = ">=0.9.3" },
     { name = "matplotlib", specifier = ">=3.11.0" },
     { name = "qdrant-client", specifier = ">=1.18.0" },
 ]
