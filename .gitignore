@@ -219,3 +219,4 @@ __marimo__/
 
 # Local data
 qdrant_data/
+data/

@@ -21,3 +21,9 @@ members = [
     "apps/api",
     "apps/chatbot_ui",
 ]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.0",
+    "qdrant-client>=1.18.0",
+]
