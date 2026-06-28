@@ -33,15 +33,6 @@ def api_call(method, url, **kwargs):
         _show_error_popup(f'An error occurred: {e}')
         return False, {'message':f'An error occurred: {e}'}
 
-with st.sidebar:
-    # Dropdown for the provider and model name
-    provider = st.selectbox("Provider", ["OpenAI"])
-    model_name = st.selectbox("Model", ["gpt-5-nano", "gpt-5-mini"])
-
-    # Store the provider and model name in the session state
-    st.session_state.provider = provider
-    st.session_state.model_name = model_name
-    
 if "messages" not in st.session_state:
     st.session_state.messages = [{'role': 'assistant', 'content': 'How can I assist you today?'}]
 
@@ -56,8 +47,9 @@ if prompt := st.chat_input("Hi, how can I assist you today?"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        response = api_call('post', f'{config.API_URL}/chat', json={'provider': st.session_state.provider, 'model_name': st.session_state.model_name, 'messages': st.session_state.messages})
-        answer = response[1]['message']
+        output = api_call('post', f'{config.API_URL}/rag', json={'query': prompt})
+        response = output[1]
+        answer = response['answer']
         st.write(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
