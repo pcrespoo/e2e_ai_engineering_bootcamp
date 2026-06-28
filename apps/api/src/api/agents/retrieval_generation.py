@@ -31,7 +31,7 @@ def get_embedding(text, model='text-embedding-3-small'):
     name='retrieve_data',
     run_type='retriever',
 )
-def retrieve_data(query, collection_name='amazon-items-collection-01', k=5):
+def retrieve_data(query, qdrant_client, collection_name='amazon-items-collection-01', k=5):
     query_embedding = get_embedding(query)
 
     results = qdrant_client.query_points(
@@ -122,8 +122,8 @@ def generate_answer(prompt):
 @traceable(
     name='rag_pipeline',
 )
-def rag_pipeline(question, topk=5):
-    retrieved_context = retrieve_data(query=question, k=topk)
+def rag_pipeline(question, qdrant_client, topk=5):
+    retrieved_context = retrieve_data(query=question, qdrant_client=qdrant_client, k=topk)
     formatted_context = process_context(retrieved_context)
     prompt = build_prompt(question, formatted_context)
     answer = generate_answer(prompt)
