@@ -31,3 +31,16 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage:z
     restart: unless-stopped
+  
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=langgraph_user
+      - POSTGRES_PASSWORD=langgraph_password
+      - POSTGRES_DB=langgraph_db
+      - PGDATA=/var/lib/postgresql/data/pgdata

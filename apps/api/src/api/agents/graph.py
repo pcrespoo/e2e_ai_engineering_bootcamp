@@ -4,7 +4,8 @@ from operator import add
 from api.agents.agents import RAGUsedContext
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
-from api.agents.tools import get_formatted_item_context
+from langgraph.checkpoint.postgres import PostgresSaver
+from api.agents.tools import get_formatted_item_context, get_formatted_reviews_context
 from api.agents.agents import agent_node, intent_router_node
 from langchain_core.messages import HumanMessage
 from qdrant_client import QdrantClient
@@ -40,7 +41,7 @@ def intent_router_conditional_edges(state: State) -> str:
 ## Graph
 
 workflow = StateGraph(State)
-tools = [get_formatted_item_context]
+tools = [get_formatted_item_context, get_formatted_reviews_context]
 tool_node = ToolNode(tools)
 
 workflow.add_node("tool_node", tool_node)
@@ -68,20 +69,26 @@ workflow.add_conditional_edges(
 workflow.add_edge("tool_node", "agent_node")
 graph = workflow.compile()
 
-## Agent execution
-def run_agent(question: str) -> dict:
+## Agent execution wrapper
+def agent_wrapper(question: str, thread_id: str) -> dict:
+    qdrant_client = QdrantClient(url='http://qdrant:6333')
+
     initial_state = {
         "messages": [HumanMessage(content=question)],
         "iteration": 0,
     }
 
-    result = graph.invoke(initial_state)
-    return result
+    config = {
+        "configurable": {
+            "thread_id": thread_id
+        }
+    }
+    with PostgresSaver.from_conn_string(
+        "postgresql://langgraph_user:langgraph_password@postgres:5432/langgraph_db"
+        ) as checkpointer:
+            graph = workflow.compile(checkpointer=checkpointer)
+            result = graph.invoke(initial_state, config=config)
 
-## Agent execution wrapper
-def agent_wrapper(question: str) -> dict:
-    qdrant_client = QdrantClient(url='http://qdrant:6333')
-    result = run_agent(question)
     used_context = []
 
     for reference in result.get('references', []):
