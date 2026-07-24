@@ -44,3 +44,23 @@ services:
       - POSTGRES_PASSWORD=langgraph_password
       - POSTGRES_DB=langgraph_db
       - PGDATA=/var/lib/postgresql/data/pgdata
+    
+  items_mcp_server:
+    build:
+      context: .
+      dockerfile: apps/items_mcp_server/Dockerfile
+    ports:
+      - 8001:8001
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  reviews_mcp_server:
+    build:
+      context: .
+      dockerfile: apps/reviews_mcp_server/Dockerfile
+    ports:
+      - 8002:8002
+    env_file:
+      - .env
+    restart: unless-stopped
