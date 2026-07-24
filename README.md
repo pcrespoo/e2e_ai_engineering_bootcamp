@@ -27,5 +27,11 @@ This repo is dedicated to including all the practical exercises done during the 
 - Tool using and ReAct Agent in LangGraph
 - Routing Pattern
 
+## Week 4
+- State persistence
+- Human-in-the-loop
+- MCP Server and MCP tools
+- State Streaming
+
 ## Contact me:
 - [LinkedIn](https://www.linkedin.com/in/pedrocrespo94/)
