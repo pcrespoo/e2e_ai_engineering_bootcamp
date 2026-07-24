@@ -3,6 +3,7 @@ import streamlit as st
 from chatbot_ui.core.config import config
 import requests
 import uuid
+import json
 
 st.set_page_config(
     page_title="Ecommerce Assistant",
@@ -37,6 +38,28 @@ def api_call(method, url, **kwargs):
             return True, response_data
         
         return False, response_data
+    except requests.exceptions.ConnectionError:
+        _show_error_popup('Failed to connect to the server')
+        return False, {'message':'Failed to connect to the server'}
+    except requests.exceptions.Timeout:
+        _show_error_popup('Request timed out')
+        return False, {'message':'Request timed out'}
+    except Exception as e:
+        _show_error_popup(f'An error occurred: {e}')
+        return False, {'message':f'An error occurred: {e}'}
+
+def api_call_stream(method, url, **kwargs):
+
+    def _show_error_popup(message):
+        st.session_state['error_popup'] = {
+            "visible": True,
+            "message": message,
+        }
+    
+    try:
+        response = getattr(requests, method)(url, **kwargs)
+        
+        return response.iter_lines()
     except requests.exceptions.ConnectionError:
         _show_error_popup('Failed to connect to the server')
         return False, {'message':'Failed to connect to the server'}
@@ -190,17 +213,55 @@ if prompt := st.chat_input("Hi, how can I assist you today?"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        state, output = api_call('post', f'{config.API_URL}/agent', json={'query': prompt, 'thread_id': st.session_state.thread_id})
+        ### Solution without streaming ######
+        #state, output = api_call('post', f'{config.API_URL}/agent', json={'query': prompt, 'thread_id': st.session_state.thread_id})
 
-        answer = output['answer']
-        used_context = output['used_context']
-        trace_id = output['trace_id']
+        #answer = output['answer']
+        #used_context = output['used_context']
+        #trace_id = output['trace_id']
 
-        st.session_state.used_context = used_context
-        st.session_state.trace_id = trace_id
-        st.write(answer)
+        #st.session_state.used_context = used_context
+        #st.session_state.trace_id = trace_id
+        #st.write(answer)
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    #st.session_state.messages.append({"role": "assistant", "content": answer})
+
+    ### Solution with streaming ######
+        status_placeholder = st.empty()
+        message_placeholder = st.empty()
+
+        for line in api_call_stream(
+            "post", 
+            f"{config.API_URL}/agent", 
+            json={"query": prompt, "thread_id": thread_id},
+            stream=True,
+            headers={"Accept": "text/event-stream"}
+        ):
+            line_text = line.decode("utf-8")
+            if line_text.startswith("data: "):
+                data = line_text[6:]
+
+                try:
+                    output = json.loads(data)
+
+                    if output["type"] == "final_answer":
+                        answer = output["data"]["answer"]
+                        used_context = output["data"]["used_context"]
+                        trace_id = output["data"]["trace_id"]
+                        
+                        st.session_state.used_context = used_context
+                        st.session_state.messages.append({"role": "assistant", "content": answer})
+                        st.session_state.trace_id = trace_id
+
+                        st.session_state.latest_feedback = None
+                        st.session_state.show_feedback_box = False
+                        st.session_state.feedback_submission_status = None
+                        
+                        status_placeholder.empty()
+                        message_placeholder.markdown(answer)
+                        break
+                
+                except json.JSONDecodeError:
+                    status_placeholder.markdown(f"*{data}*")
+
     st.rerun()
-
-

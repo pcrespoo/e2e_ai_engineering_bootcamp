@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from api.agents.retrieval_generation import rag_pipeline
-
+import json
 
 class State(BaseModel):
     messages: Annotated[List[Any], add] = []
@@ -71,7 +71,29 @@ workflow.add_edge("tool_node", "agent_node")
 graph = workflow.compile()
 
 ## Agent execution wrapper
-def agent_wrapper(question: str, thread_id: str) -> dict:
+def agent_stream_wrapper(question: str, thread_id: str) -> dict:
+    def _string_to_sse(string: str):
+        return f"data: {string}\n\n"
+
+    def _process_graph_event(chunk):
+        def _is_node_start(chunk):
+            return chunk[1].get("type") == "task"
+
+        def _tool_to_text(tool_call):
+            if tool_call.get("name") == "get_formatted_item_context":
+                return f"Looking for items: {tool_call.get('args').get('query', '')}."
+            elif tool_call.get("name") == "get_formatted_reviews_context":
+                return f"Fetching user reviews..."
+
+        if _is_node_start(chunk):
+            if chunk[1].get("payload", {}).get("name") == "intent_router_node":
+                return "Analysing the question..."
+            if chunk[1].get("payload", {}).get("name") == "agent_node":
+                return "Planning..."
+            if chunk[1].get("payload", {}).get("name") == "tool_node":
+                message = " ".join([_tool_to_text(tool_call) for tool_call in chunk[1].get('payload', {}).get('input', {}).messages[-1].tool_calls])
+                return message
+
     qdrant_client = QdrantClient(url='http://qdrant:6333')
 
     initial_state = {
@@ -88,7 +110,12 @@ def agent_wrapper(question: str, thread_id: str) -> dict:
         "postgresql://langgraph_user:langgraph_password@postgres:5432/langgraph_db"
         ) as checkpointer:
             graph = workflow.compile(checkpointer=checkpointer)
-            result = graph.invoke(initial_state, config=config)
+            for chunk in graph.stream(initial_state, config, stream_mode=["debug","values"]):
+                processed_chunk = _process_graph_event(chunk)
+                if processed_chunk: #only runs if the chunk corresponds to the beginning of a step
+                    yield _string_to_sse(processed_chunk) #returns the progress to the frontend
+                if chunk[0] == "values":
+                    result = chunk[1] #returns the final result to the rest of the agent node execution
 
     used_context = []
 
@@ -114,8 +141,13 @@ def agent_wrapper(question: str, thread_id: str) -> dict:
                 'description': reference.get('description'),
             })
         
-    return {
-        'answer': result.get('answer'),
-        'used_context': used_context,
-        'trace_id': result.get('trace_id',''),
-    }
+    yield _string_to_sse(json.dumps(
+        {   
+            'type': 'final_answer',
+            'data': {   
+                'answer': result.get('answer'),
+                'used_context': used_context,
+                'trace_id': result.get('trace_id',''),
+            }
+        }
+    ))
