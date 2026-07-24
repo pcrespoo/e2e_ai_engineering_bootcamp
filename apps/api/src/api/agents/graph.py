@@ -20,6 +20,7 @@ class State(BaseModel):
     answer: str = ""
     final_answer: bool = False
     references: list[RAGUsedContext] = []
+    trace_id: str = ""
 
 ## Edges
 def tool_router(state: State) -> str:
@@ -116,4 +117,5 @@ def agent_wrapper(question: str, thread_id: str) -> dict:
     return {
         'answer': result.get('answer'),
         'used_context': used_context,
+        'trace_id': result.get('trace_id',''),
     }

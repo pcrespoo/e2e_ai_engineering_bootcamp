@@ -87,6 +87,7 @@ def agent_node(state) -> dict:
         "references": references
     }
 
+## Intent Router Node
 @traceable(
     name="route_intent",
     run_type="llm",
@@ -95,8 +96,6 @@ def agent_node(state) -> dict:
         "ls_model": "gpt-5.4-mini"
     }
 )
-
-## Intent Router Node
 def intent_router_node(state) -> dict:
     template = prompt_template_config('api/agents/prompts/intent_router_agent.yml', 'intent_router_agent')
     prompt = template.render()
@@ -126,7 +125,11 @@ def intent_router_node(state) -> dict:
             'output_tokens': raw_response.usage.output_tokens,
             'total_tokens': raw_response.usage.total_tokens,
         }
+        trace_id = str(current_run.trace_id)
+    else:
+        trace_id = ""
     return {
         'question_relevant': response.question_relevant,
-        'answer': response.answer
+        'answer': response.answer,
+        'trace_id': trace_id
     }
