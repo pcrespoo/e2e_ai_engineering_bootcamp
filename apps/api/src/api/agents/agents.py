@@ -1,9 +1,9 @@
 from langsmith import traceable, get_current_run_tree
-from langchain_core.messages import SystemMessage, convert_to_openai_messages
+from langchain_core.messages import SystemMessage, convert_to_openai_messages, AIMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from api.agents.utils.prompt_management import prompt_template_config
-from api.agents.tools import get_formatted_item_context
+from api.agents.tools import get_formatted_item_context, get_formatted_reviews_context
 import instructor
 import jinja2
 
@@ -13,6 +13,7 @@ class RAGUsedContext(BaseModel):
     description: str = Field(description="The description of the item used to answer the question")
 
 class FinalResponse(BaseModel):
+    """Call this tool when the final answer is possible using available context"""
     answer: str = Field(description="The answer to the user's question")
     references: list[RAGUsedContext] = Field(description="List of items used to answer the question")
 
@@ -35,13 +36,13 @@ def agent_node(state) -> dict:
 
     llm = ChatOpenAI(
         model="gpt-5.4-mini",
-        reasoning_effort = "none",
+        reasoning_effort = "low",
         use_responses_api=True,
     )
 
     llm_with_tools = llm.bind_tools(
-        [get_formatted_item_context, FinalResponse],
-        tool_choice="any"
+        [get_formatted_item_context, get_formatted_reviews_context, FinalResponse],
+        tool_choice="required"
     )
 
     response = llm_with_tools.invoke(
@@ -63,13 +64,20 @@ def agent_node(state) -> dict:
     answer = ""
     references = []
 
-    if len(response.tool_calls) > 0:
+    def sanitize_response(response):
         for tool_call in response.tool_calls:
             if tool_call.get('name') == "FinalResponse":
+                answer = tool_call.get('args').get('answer')
+        
+        return AIMessage(content=answer)    
+
+    if len(response.tool_calls) > 0:
+        for tool_call in response.tool_calls:
+            if tool_call.get('name') == 'FinalResponse':
                 final_answer = True
                 answer = tool_call.get('args').get('answer')
                 references.extend(tool_call.get('args').get('references'))
-                
+                response = sanitize_response(response)
 
     return {
         "messages": [response],
@@ -79,6 +87,7 @@ def agent_node(state) -> dict:
         "references": references
     }
 
+## Intent Router Node
 @traceable(
     name="route_intent",
     run_type="llm",
@@ -87,17 +96,13 @@ def agent_node(state) -> dict:
         "ls_model": "gpt-5.4-mini"
     }
 )
-
-## Intent Router Node
 def intent_router_node(state) -> dict:
     template = prompt_template_config('api/agents/prompts/intent_router_agent.yml', 'intent_router_agent')
     prompt = template.render()
 
     messages = state.messages
     conversation = []
-    
-    for message in messages:
-        conversation.append(convert_to_openai_messages(message))
+    conversation.append(convert_to_openai_messages(messages[-1]))
 
     client = instructor.from_provider(
         "openai/gpt-5.4-mini",
@@ -120,7 +125,11 @@ def intent_router_node(state) -> dict:
             'output_tokens': raw_response.usage.output_tokens,
             'total_tokens': raw_response.usage.total_tokens,
         }
+        trace_id = str(current_run.trace_id)
+    else:
+        trace_id = ""
     return {
         'question_relevant': response.question_relevant,
-        'answer': response.answer
+        'answer': response.answer,
+        'trace_id': trace_id
     }
