@@ -33,5 +33,12 @@ This repo is dedicated to including all the practical exercises done during the 
 - MCP Server and MCP tools
 - State Streaming
 
+## Week 5
+- BREAK
+
+## Week 6
+- Multi-agents architecture
+- Database management as tools
+
 ## Contact me:
 - [LinkedIn](https://www.linkedin.com/in/pedrocrespo94/)
