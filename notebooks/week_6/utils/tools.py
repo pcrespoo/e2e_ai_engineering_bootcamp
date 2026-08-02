@@ -1,13 +1,13 @@
 from langsmith import traceable, get_current_run_tree
 from langchain_core.tools import tool
 from qdrant_client import QdrantClient
-from qdrant_client.models import Prefetch, Document, FusionQuery, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Prefetch, Document, FusionQuery, Filter, FieldCondition, MatchValue, MatchAny
 from qdrant_client import models
 import openai
 import cohere
+import numpy as np
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import numpy as np
 
 @traceable(
     name='embed_query',
@@ -134,7 +134,7 @@ def get_formatted_item_context(query: str, top_k: int = 5) -> str:
         A string of the top_k context chunks with IDs and average ratings prepeding each chunk, each representing an inventory item for a given query
     """
 
-    qdrant_client = QdrantClient(url="http://qdrant:6333")
+    qdrant_client = QdrantClient(url="http://localhost:6333")
 
     retrieved_context = retrieve_items_data(
         query, 
@@ -160,11 +160,11 @@ def retrieve_prefiltered_reviews_data(query, qdrant_client, parent_asins, collec
             Prefetch(
                 query=query_embedding,
                 using="text-embedding-3-small",
-                filter=models.Filter(
+                filter=Filter(
                     must=[
-                        models.FieldCondition(
+                        FieldCondition(
                             key="parent_asin",
-                            match=models.MatchAny(any=parent_asins)
+                            match=MatchAny(any=parent_asins)
                         )
                     ]
                 ),
@@ -212,7 +212,7 @@ def get_formatted_reviews_context(query: str, parent_asins: list[str], top_k: in
     Returns:
         A string of the top_k context chunks with IDs and average ratings prepeding each chunk, each representing an inventory item for a given query
     """
-    qdrant_client = QdrantClient(url="http://qdrant:6333")
+    qdrant_client = QdrantClient(url="http://localhost:6333")
 
     retrieved_context = retrieve_prefiltered_reviews_data(query, qdrant_client, parent_asins, collection_name='amazon-reviews-collection-01', k=top_k)
 
@@ -236,7 +236,7 @@ def add_to_shopping_cart(items: list[dict], user_id: str, cart_id: str) -> str:
     """
 
     conn = psycopg2.connect(
-        host="postgres",
+        host="localhost",
         port=5432,
         database="tools_database",
         user="tools_user",
@@ -250,7 +250,7 @@ def add_to_shopping_cart(items: list[dict], user_id: str, cart_id: str) -> str:
             product_id = item['product_id']
             quantity = item['quantity']
 
-            qdrant_client = QdrantClient(url="http://qdrant:6333")
+            qdrant_client = QdrantClient(url="http://localhost:6333")
 
             dummy_vector = np.zeros(1536).tolist()
             payload = qdrant_client.query_points(
@@ -318,43 +318,6 @@ def add_to_shopping_cart(items: list[dict], user_id: str, cart_id: str) -> str:
             
     return f"Added {items} to the shopping cart."
 
-def get_shopping_cart_for_see(user_id: str, cart_id: str) -> list[dict]:
-
-    """
-    Retrieve all items in a user's shopping cart.
-    
-    Args:
-        user_id: User identifier
-        cart_id: Cart identifier
-    
-    Returns:
-        List of dictionaries containing cart items
-    """
-    
-    conn = psycopg2.connect(
-        host="postgres",
-        port=5432,
-        database="tools_database",
-        user="tools_user",
-        password="tools_user_password"
-    )
-    conn.autocommit = True
-
-    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-
-        query = """
-                SELECT 
-                    product_id, price, quantity,
-                    currency, product_image_url,
-                    (price * quantity) as total_price
-                FROM shopping_carts.shopping_cart_items 
-                WHERE user_id = %s AND shopping_cart_id = %s
-                ORDER BY added_at DESC
-            """
-        cursor.execute(query, (user_id, cart_id))
-
-        return [dict(row) for row in cursor.fetchall()]
-
 @tool
 def get_shopping_cart(user_id: str, cart_id: str) -> list[dict]:
 
@@ -370,7 +333,7 @@ def get_shopping_cart(user_id: str, cart_id: str) -> list[dict]:
     """
     
     conn = psycopg2.connect(
-        host="postgres",
+        host="localhost",
         port=5432,
         database="tools_database",
         user="tools_user",
@@ -409,7 +372,7 @@ def remove_from_cart(product_id: str, user_id: str, cart_id: str) -> str:
     """
     
     conn = psycopg2.connect(
-        host="postgres",
+        host="localhost",
         port=5432,
         database="tools_database",
         user="tools_user",
@@ -446,7 +409,7 @@ def check_warehouse_availability(items: list[dict]) -> dict:
     """
     
     conn = psycopg2.connect(
-        host="postgres",
+        host="localhost",
         port=5432,
         database="tools_database",
         user="tools_user",
@@ -585,7 +548,7 @@ def reserve_warehouse_items(reservations: list[dict]) -> dict:
     """
     
     conn = psycopg2.connect(
-        host="postgres",
+        host="localhost",
         port=5432,
         database="tools_database",
         user="tools_user",

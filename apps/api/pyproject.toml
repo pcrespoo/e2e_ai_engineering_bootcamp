@@ -15,6 +15,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.1.0",
     "langsmith>=0.9.3",
     "openai>=2.43.0",
+    "psycopg2-binary>=2.9.12",
     "psycopg[binary]>=3.3.4",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
