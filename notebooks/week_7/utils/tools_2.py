@@ -1,0 +1,5 @@
+from .tools import check_warehouse_availability as _check_warehouse_availability
+from .tools import reserve_warehouse_items as _reserve_warehouse_items
+
+check_warehouse_availability = _check_warehouse_availability.func
+reserve_warehouse_items = _reserve_warehouse_items.func

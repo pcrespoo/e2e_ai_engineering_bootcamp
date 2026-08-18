@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Annotated, List, Any
 from operator import add
-from api.agents.agents import RAGUsedContext, Delegation, product_qna_agent, shopping_cart_agent, warehouse_manager_agent, coordinator_agent
+from api.agents.agents import RAGUsedContext, product_qna_agent, shopping_cart_agent, warehouse_manager_agent, coordinator_agent
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -9,7 +9,6 @@ from api.agents.tools import get_formatted_item_context, get_formatted_reviews_c
 from langchain_core.messages import HumanMessage
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
-from api.agents.retrieval_generation import rag_pipeline
 import json
 
 class AgentProperties(BaseModel):
@@ -19,7 +18,6 @@ class AgentProperties(BaseModel):
 class CoordinatorProperties(BaseModel):
     final_answer: bool = False
     iteration: int = 0
-    plan: List[Delegation] = []
     next_agent: str = ""
 
 class State(BaseModel):
@@ -190,7 +188,6 @@ def agent_stream_wrapper(question: str, thread_id: str) -> dict:
         "coordinator_agent": {
             "final_answer": False,
             "iteration": 0,
-            "plan": [],
             "next_agent": ""
         },
         "product_qna_agent": {
