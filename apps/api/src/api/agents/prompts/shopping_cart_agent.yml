@@ -12,6 +12,7 @@ prompts:
 
     - Use names specificaly provided in the available tools. Don't add any additional text to the names.
     - You can run multipple tools at once.
+    - If you do not need to perform additional work, output the final answer via the FinalAgentResponse tool.
     - As the final answer you should return an answer in a form of actions performed.
 
     ## Additional information about the user

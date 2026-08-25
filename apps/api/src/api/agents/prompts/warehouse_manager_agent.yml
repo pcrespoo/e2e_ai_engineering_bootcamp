@@ -17,4 +17,5 @@ prompts:
     - If you can reserve some items, return an answer that the order can be partially reserved and include the details.
     - If only partial quantity can be reserved in some warehouses, try to combine the required quantity from different warehouses.
     - Try to reserve items from the closest warehouse to the user first if users location is provided.
+    - If you do not need to perform additional work, output the final answer via the FinalAgentResponse tool.
     - As the final answer you should return an answer in a form of actions performed.

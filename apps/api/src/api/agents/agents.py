@@ -24,6 +24,7 @@ class FinalAgentResponse(BaseModel):
 ## Coordinator Agent Response model
 class Plan(BaseModel):
     next_agent: str = Field(description="The next agent to invoke")
+    next_agent_task: str = Field(description="The task to be performed by the next agent")
 
 ## QnA Agent Node
 @traceable(
@@ -52,7 +53,7 @@ def product_qna_agent(state) -> dict:
     response = llm_with_tools.invoke(
         [
             SystemMessage(content=prompt),
-            *state.messages #this lets the model reference the previous messages (the history)
+            *state.messages
         ]
     )
 
@@ -98,17 +99,10 @@ def shopping_cart_agent(state) -> dict:
     response = llm_with_tools.invoke(
         [
             SystemMessage(content=prompt),
-            *state.messages #this lets the model reference the previous messages (the history)
+            AIMessage(content=state.coordinator_agent.next_agent_task),
+            *state.shopping_cart_agent.messages
         ]
     )
-
-    current_run = get_current_run_tree()
-    if current_run:
-        current_run.metadata['usage_metadata'] = {
-            'input_tokens': response.usage_metadata['input_tokens'],
-            'output_tokens': response.usage_metadata['output_tokens'],
-            'total_tokens': response.usage_metadata['total_tokens'],
-        }
 
     postprocessed_response = postprocess_response(response, "FinalAgentResponse", "shopping_cart_agent")
     final_answer = postprocessed_response.get("final_answer")
@@ -116,10 +110,11 @@ def shopping_cart_agent(state) -> dict:
     response = postprocessed_response.get("response")
 
     return {
-        "messages": [response],
+        "messages": [response] if final_answer else [],
         "shopping_cart_agent": {
             "final_answer": final_answer,
             "iteration": state.shopping_cart_agent.iteration + 1,
+            "messages": [response]
         },
         "answer": answer
     }
@@ -150,17 +145,10 @@ def warehouse_manager_agent(state) -> dict:
     response = llm_with_tools.invoke(
         [
             SystemMessage(content=prompt),
-            *state.messages #this lets the model reference the previous messages (the history)
+            AIMessage(content=state.coordinator_agent.next_agent_task),
+            *state.warehouse_manager_agent.messages
         ]
     )
-
-    current_run = get_current_run_tree()
-    if current_run:
-        current_run.metadata['usage_metadata'] = {
-            'input_tokens': response.usage_metadata['input_tokens'],
-            'output_tokens': response.usage_metadata['output_tokens'],
-            'total_tokens': response.usage_metadata['total_tokens'],
-        }
 
     postprocessed_response = postprocess_response(response, "FinalAgentResponse", "warehouse_manager_agent")
     final_answer = postprocessed_response.get("final_answer")
@@ -168,10 +156,11 @@ def warehouse_manager_agent(state) -> dict:
     response = postprocessed_response.get("response")
 
     return {
-        "messages": [response],
+        "messages": [response] if final_answer else [],
         "warehouse_manager_agent": {
             "final_answer": final_answer,
             "iteration": state.warehouse_manager_agent.iteration + 1,
+            "messages": [response]
         },
         "answer": answer
     }
@@ -208,11 +197,6 @@ def coordinator_agent(state) -> dict:
 
     current_run = get_current_run_tree()
     if current_run:
-        current_run.metadata['usage_metadata'] = {
-            'input_tokens': response.usage_metadata['input_tokens'],
-            'output_tokens': response.usage_metadata['output_tokens'],
-            'total_tokens': response.usage_metadata['total_tokens'],
-        }
         trace_id = str(current_run.trace_id)
     else:
         trace_id = ''
@@ -220,11 +204,13 @@ def coordinator_agent(state) -> dict:
     final_answer = False
     answer = ""
     next_agent = ""
+    next_agent_task = ""
 
     if len(response.tool_calls) > 0:
         if response.tool_calls[0].get('name') == 'Plan':
             next_agent = response.tool_calls[0].get('args').get('next_agent')
-            response = AIMessage(content=f'[coordinator_agent_decision]: Next Agent is {next_agent}')
+            next_agent_task = response.tool_calls[0].get('args').get('next_agent_task')
+            response = AIMessage(content=f'[coordinator_agent_decision]: Next Agent is {next_agent}. Next Task is {next_agent_task}')
         else:   
             postprocessed_response = postprocess_response(response, "FinalAgentResponse")
             final_answer = postprocessed_response.get("final_answer")
@@ -236,7 +222,8 @@ def coordinator_agent(state) -> dict:
         "coordinator_agent": {
             "final_answer": final_answer,
             "iteration": state.coordinator_agent.iteration + 1,
-            "next_agent": next_agent
+            "next_agent": next_agent,
+            "next_agent_task": next_agent_task
         },
         "answer": answer,
         "trace_id": trace_id

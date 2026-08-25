@@ -36,15 +36,20 @@ This repo is dedicated to including all the practical exercises done during the 
 - State Streaming
 
 ## Week 5
-- BREAK
+- COURSE BREAK
 
 ## Week 6
-- Multi-agents architecture
+- Multi-agents architecture (MAS)
 - Database management as tools
 
 ## Week7
 - Coordinator Agent Evals
 - A2A with LangGraph and MAS
+
+## Week 8
+- Rebuild MAS topology
+- Prompt caching
+- Human-in-the-loop mechanism
 
 ## Contact me:
 - [LinkedIn](https://www.linkedin.com/in/pedrocrespo94/)

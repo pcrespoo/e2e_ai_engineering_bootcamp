@@ -5,6 +5,11 @@ class AgentRequest(BaseModel):
     query: str
     thread_id: str
 
+class HitlRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    feedback: str
+
 class RAGUsedContext(BaseModel):
     image_url: str
     price: Optional[float] = None
